@@ -1,0 +1,581 @@
+<title>Recall Ladder</title>
+<meta name="description" content="A memory trainer: recall the list in order, and every perfect recall adds one more item.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* One column, one screen at a time: a top bar with two tabs, then lists, study, recall, result.
+   The large mono length number is the only bold element; everything around it stays quiet. */
+:root {
+  --bg: #EDF0F6;
+  --surface: #FFFFFF;
+  --surface-2: #E2E8F3;
+  --ink: #131A2E;
+  --muted: #56627F;
+  --line: #C9D2E4;
+  --accent: #2543F5;
+  --on-accent: #FFFFFF;
+  --mark: #FFD84A;
+  --on-mark: #2B2300;
+  --good: #0F7A56;
+  --bad: #B8362B;
+  --f-display: 'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1120; --surface: #141B30; --surface-2: #1C2542; --ink: #E8EDFB; --muted: #97A2C3;
+    --line: #29345A; --accent: #8EA2FF; --on-accent: #0C1120; --good: #4FD6A2; --bad: #FF8E7E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1120; --surface: #141B30; --surface-2: #1C2542; --ink: #E8EDFB; --muted: #97A2C3;
+  --line: #29345A; --accent: #8EA2FF; --on-accent: #0C1120; --good: #4FD6A2; --bad: #FF8E7E;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 1rem/1.5 var(--f-body);
+  padding-inline: 1rem; padding-block: 1rem 7rem;
+}
+.wrap { max-width: 46rem; margin-inline: auto; display: flex; flex-direction: column; gap: 1.5rem; }
+h1, h2, h3, p { margin: 0; }
+h1 { font: 800 clamp(1.7rem, 6vw, 2.3rem)/1.1 var(--f-display); text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font: 600 1.15rem/1.2 var(--f-display); }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+.eyebrow { font: 600 .75rem/1 var(--f-body); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: .6rem; font: 800 1.25rem/1 var(--f-display); letter-spacing: -0.01em; color: var(--ink); }
+.brand svg { width: 1.6rem; height: 1.6rem; color: var(--accent); }
+.tabs { display: flex; gap: .2rem; background: var(--surface-2); border-radius: .7rem; padding: .2rem; }
+.tab { border: 0; background: transparent; border-radius: .5rem; padding: .5rem .9rem; font-weight: 600; font-size: .9375rem; cursor: pointer; color: var(--muted); min-height: 2.5rem; }
+.tab[aria-current="page"] { background: var(--surface); color: var(--ink); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .65rem 1.1rem; border-radius: .65rem; border: 1px solid var(--line); background: var(--surface); font-weight: 600; cursor: pointer; text-align: center; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.btn.danger { color: var(--bad); }
+.btn.quiet { background: transparent; }
+.btn.wide { width: 100%; }
+.link { border: 0; background: none; padding: .25rem 0; font-weight: 600; color: var(--accent); cursor: pointer; min-height: 2.5rem; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: .9rem; padding: 1.1rem; display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
+.chip { display: inline-block; font: 600 .75rem/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: .35rem .55rem; border-radius: .4rem; background: var(--surface-2); color: var(--muted); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: .75rem; }
+
+.lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.big { font: 800 clamp(3.2rem, 15vw, 5rem)/1 var(--f-display); color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.numline { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.actions .btn.primary { flex: 1 1 8rem; }
+
+.starts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .75rem; }
+.start { text-align: left; align-items: flex-start; flex-direction: column; gap: .25rem; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: .8rem; cursor: pointer; min-height: 5.5rem; }
+.start strong { font: 600 1.1rem/1.2 var(--f-display); }
+.start span { font-size: .875rem; color: var(--muted); }
+.start:hover { border-color: var(--accent); }
+
+.wgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .5rem; }
+.wgrid li { display: flex; align-items: baseline; gap: .5rem; padding: .6rem .7rem; background: var(--surface); border: 1px solid var(--line); border-radius: .55rem; min-width: 0; }
+.wgrid .n { font: 400 .75rem/1 var(--f-mono); color: var(--muted); min-width: 2.2ch; text-align: right; font-variant-numeric: tabular-nums; }
+.wgrid .w { font: 500 1.05rem/1.2 var(--f-mono); overflow-wrap: anywhere; }
+.ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .5rem; }
+.grp { display: flex; align-items: baseline; gap: .6rem; padding: .6rem .7rem; background: var(--surface); border: 1px solid var(--line); border-radius: .55rem; min-width: 0; }
+.grp .gi { font: 400 .75rem/1 var(--f-mono); color: var(--muted); min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+.grp .gv { font: 500 1.35rem/1.2 var(--f-mono); letter-spacing: .28em; }
+mark, .wgrid li.new { background: var(--mark); color: var(--on-mark); border-radius: .25rem; }
+.wgrid li.new { border-color: transparent; }
+.wgrid li.new .n { color: var(--on-mark); }
+.grp mark { padding: 0 .08em; margin-inline: -.08em; }
+
+.dock { position: fixed; inset-inline: 0; bottom: 0; padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); display: flex; justify-content: center; gap: .5rem; }
+.dock .in { width: 100%; max-width: 46rem; display: flex; gap: .5rem; }
+.dock .btn.primary { flex: 1; }
+
+textarea { width: 100%; min-height: 13rem; resize: vertical; padding: .9rem; border-radius: .7rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 1.1rem/1.6 var(--f-mono); }
+textarea::placeholder { color: var(--muted); }
+.counter { font: 500 .875rem/1 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.warn { color: var(--bad); font-weight: 500; }
+
+.verdict { display: flex; flex-direction: column; gap: .75rem; }
+.verdict.ok .eyebrow { color: var(--good); }
+.verdict.no .eyebrow { color: var(--bad); }
+.pill { display: inline-block; align-self: flex-start; padding: .4rem .7rem; border-radius: 999px; background: var(--mark); color: var(--on-mark); font-weight: 600; font-size: .875rem; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .7rem; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 600 .75rem/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+td.m { font-family: var(--f-mono); }
+tr:last-child td { border-bottom: 0; }
+
+.scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
+.foot { text-align: center; padding-top: .5rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+.authrow { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: center; width: 100%; }
+.authrow input { flex: 1 1 14rem; min-width: 0; min-height: 2.75rem; padding: .6rem .8rem; border-radius: .65rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 400 1rem var(--f-body); }
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v26M24 3v26M8 9h16M8 16h16M8 23h16"/></svg>
+      <span>Recall Ladder</span>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" id="tab-home" data-act="home">Lists</button>
+      <button class="tab" id="tab-score" data-act="score">Scoreboard</button>
+    </nav>
+  </header>
+  <main id="screen"></main>
+  <div class="small muted foot" id="foot"></div>
+</div>
+<div class="dock" id="dock" hidden><div class="in" id="dockin"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+'use strict';
+/* ---------- core logic (pure, no DOM) ---------- */
+// CORE-START
+var MAX = 10000;
+var CATS = {
+  words:   { label: 'Words',   unit: 'words',   blurb: 'Common words first, rarer ones as the list grows.' },
+  numbers: { label: 'Numbers', unit: 'digits',  blurb: 'Single digits, shown in groups of five.' },
+  letters: { label: 'Letters', unit: 'letters', blurb: 'Capitals first, lowercase joins after 26.' }
+};
+var BANK = "bird sheep egg lion zebra snake ship book cat rain leaf fish car road meat whale wind bear fire mouse milk boat hill fox horse rice bread tiger door dog frog barn cake hen moon box rabbit deer pig goat star monkey sand lake bed sun tree farm apple duck ice pen cow shark cup hat wolf rock bus snow cheese banana gray tea honey swim pea grape four soup salt paint cook two three plum six peach carrot read ten dance onion blue run five berry tomato nine purple black sugar eat eight butter sing lemon red brown coffee juice one corn green nut white pink draw gold water write walk seven orange jump pear bean potato yellow silver cool kick sleep close talk soft brave short loud hot big climb slow smile watch kind long play throw wide fast sad new drink small laugh funny cold hard wake stand ride work house wash mad fat clean happy listen tall quiet dry home open shy angry rest drive old pull look young fly sit warm push thin catch cry chest mouth sister bowl teacher finger ear chair friend glass leg hand bag scarf face ring clock thumb dress arm floor foot back baby spoon heart pants neck knife sink bottle shoe plate hair coat mother father wall sock knee head mirror eye room doctor brother nose basket lamp bath belt fork window stove roof nurse tooth glove table shirt town ocean rainbow queen village friday morning spring farmer shadow man flute park bell year street summer king boy pilot guitar music island day winter sea child bridge story girl beach thunder driver light garden song cloud cave city week night desert earth mountain autumn field sky river evening world today woman monday forest month drum storm prince piano valley kite ruler glue key train number brick wheel money coin metal cotton bank ball map wool chain broom lock party wood bike fence plane truck class page scissors doll store flag gift game saw brush rope shop silk hammer gate engine letter toy picture bucket paper stone path word school ladder camp puzzle market nail tent lesson pencil iron name nest root flower shield tired pearl dessert sword feather tulip robot jam sandwich fruit coast wing dragon pizza candy poor harbor ghost rose bush clever sick branch anchor wave salad seed diamond tide pirate sail chocolate breakfast castle lunch pie cookie bark lighthouse crown vegetable tower cream noodle grass thirsty weak giant hungry rich shell pasta wizard dinner daisy strong side last silly round left down front edge dot west under middle over gentle next far bottom right triangle east corner first late smooth line early square rough top circle south sharp north near out max orc hop jar jet cox pet hue zip rob keg fin ion imp pox pup sob him jay dab lav zee lot alb put tag err nag col yob hoy jug lip mod pat vie mop the pol rut act our bra cab gig tun spa set ewe mho tie gar gob vet bob ebb arc awn ope fad tel amp cap yak you die peg tar pec use ort sou nab bio ode pin vol mag mew boo sot wok jig tot get yep hay lab lee mow fug bar lag jab try yam mat fry jaw say foe ash awe vat alp kor pap joy lea pot wet rug yen doz dit add app oak but she bun tum pax mot kit pip toe pay pep mam urn wee sum bro ski ape law yap mix van dob end oar hum oaf fee nub low pan hoe pry gas elk lux lap erg buy net pom ark zig rum dib bod faun lurk loss foil tub nuke chow cube diet plop dye hob want cert chip rash urge hiss tell floc chef pall pong burg dash viol jib rip plot teal pail tame lair bye wit gap riot vise kiss cyme tire gown ping sway mesh muon oink land rick skid quid mote lens rave cud buss note tint yolk can flan lynx pose ooh hash scup sore dine whim pouf ream pul chop noun dual mike weft wog mic pub ted poof tune gut tow more coo soak dig maim slob phon hon spy ease hulk move woo aloe foal pout sap glut hare tend joss rear puff hive rout choc own pood cod grot lube bug ore odd souk base gem hip pest rage lid mug same void whup vex etch kayo prod wain mac sir grok noel tug rial lin whip ding air bail rotl roc chat fern ploy loge bet bard kaon vial lat emf cuss cop kea cull pone sunn nave rid row mutt save thaw brew fare kilt sine guv daub beak spot irk sud rind rep rusk chub clam lawn coif lash rite zed temp wham womb eel vast don snug cast lave moll lam prep cere sue jazz beam site wise vamp haw pod tau husk dais tome wart acre yurt tear lay yew pang sec tilt deck bilk lath bey see bang knot slam daw kob crux gene grep join dam log fum garb grin hoop dunk scag deem hope ness writ fume mus rake dol dray kink puss pun damp cue mar orb rim dint meld sard slub sone whop fear noon gilt slag berg beep fix bawd blat flea lace hog beat lack vote dun deep dram dill thug beet yean mem gill mere buff guar tush boil fool sham nit mump epee win brat dawn feel gall ruin flux tort dub need rill bay dang jape mold nard stun suss hem luck sour pane snag hew glia drip lint dump erne hear spit rook sup yaw curd tote tuft gent rove scum watt din good wend nix hark fall lwei thou aid eke post text pic peek peer dial film moo kip port dear mill stet veld bub pad dish slap spar bud wan eyas coup ford hint prof care hoax muff rink stub guy ogre wisp bulb scow tax josh pew busk deb mewl parr ply bash dice bow hin dip roan zest bake jolt rat rung bop gear haft fib leer mace git hut bide bolt purr tam jade gin tor loaf spiv leak spue woe mode let pulp nib fort less zoo byre fend till ace brim snot swab tool burr sod caul sub blow rare rhea swat yawp tin wack job wad trap ant poo tee craw lung sign whet geek quin seal gong hag ruse tier hade node perv will mom geld beg fig jell yard var cash link tram jot fist skim ray neap alt call goof knap swig cub kid lisp mark pal fine razz jinx sear main moat pyre hug heir hie make monk sage scan sow lure ogee bat sop crew poem diff find pope time ween rant god peel sake toll ell way coax nap ante trio yarn frap punt bel shay spay pro gaur wade bunt cove cusp nod sift yowl wop jibe cad gyp hold cay gym ill halm yip lei gook moue jag hood gnaw hang joke khan whir gain smew sag curb doge barb hone lush iamb lark lob tic true berm seam doc ooze puck slew wasp keen tuck cot cote bit jeer soul sump dad sty fact glad pya rad hoke swag raze rush toil dote lug neb fax flop rot duet ruck ghat veer wait grunt hank mass tron crore flunk pleat gamp heft bayou hoof auk gel solve jog ram droid knead triad cam swine rag bray haze pace glow twill nosh yelp tab brag hind twang arb state aim hex boll ciao frack disk thee revue blur flex rogue tout glaze trial poll task churl felt harm leek snack skate lobe voice toke blitz chive clerk halve slump what mulch shirr smock milf seep vent tough web quip wag clown jaunt tux byte desk loop slue skimp franc nay scut wish rev taw gush plonk prion stalk maw trip lance skirt tromp war fill hike brief peeve corm earl clit clog tube wand asp eff how yuk jail cluck drift moil debt clear lout bream grief stoke nip bach scab thud dirge fuzz hart heal sulk tamp broke cheep snick tread art baa shush spike ohm tat tog fade vouge snore cob hymn moot skua vape leech surge lope frock vogue case lull yup kiln panne sax trace bend shoo quay rift czar troop perm grime place fess sip claw blend flout hod fang view daunt scour null perk prude quirt smart smoke stout mime whin tonne shad vibe grade primp sic dime minx sync group laird quine meg lead latte scoop terce goad hump mind plan gash riyal smelt stash harp serve code faff list wane bleed maize inc numb plus barf float fave pend snub dace hurl bum zine shore swath pyx abbe meet curie boar live plat charm stirk fen slosh tilde ken mut poet seem sett finch tinge oil mast rasp blade mare seat scute sweep eft here padre quad dupe lase nerd roue chafe feast print ham lad owe mink aunt hype clove tap pooh weal girt preen bib pop craft phial sac pate prop truce cur whap kopje shoal dope blush lop rho waif wheal bid dew rub flask frond crush scrip jean skep bonce quash sling zit punk trave lyre suite spud joust quint start caw fore mist phot tail wonk brill sedge nog rune stage con mil floe gasp loath spang lye sew dove whack bent dell dull hide yawn pit airt mete court age mol paw sis cede poke worst lek loose scrap crag germ meme plume swash tribe wold mince form grad loot verb share teach ban clew coop bleat brood check craze cutie eve carl fate loam must zing crone sauce elm tan flee glume hyoid tyke hit cram fink mall toad scowl frat twink moor pill scene cut balk fest lose norm coact slime troat draft fleck pee conn maid pleb spark laze ward smite drab gawp grue hush pare glob steed duo nun biff prior skunk stint kos clot puke noose cure tart loll gruel gibe prig plasm doe tad dorm birth spur tosh xref blurt titch fob chum curse foist mean tong hedge pewee bap baud judge slope ail shew tens yank fluid due crib clomp fog flaw cross dose emcee whelp burl pray fir earn reel soap fawn reek buhl coon gram grit matte ton yes ayin bitt meal scat flush steal swage fluor inn chad slop reorg zonk hoist are bald cray miff poop prow trug croak ting yeast deist tease moss swish gee crab jink pond glint haunt leash boon swot ghoul volt fount cane chaw nook cleft trine fife gait ramp aby fjord flood torch gag bine roe melee ley wed turn wink quoit swear shawl oka sting font blink spree gad dirk woad board sweat sin fete eagre ranch ref doss leap scrog flow frig ranee tempt toss ump rube blain lease shaft cog tack when jut pawl vine dag psi miss rise gab rya gape chasm rib gran torte snuff blog lass wail rig blob keel lift wear dune firm beaut latke stoop vein warp chump donne snark stag ketch scram gnu weld aitch gloom ledge fuel bloc lech bot cult peon yoke crave gaff sell flick scold doit gyve sept crisp opt grub twee avo doom jack leone zap aide coal type point awl hunk cheer coign malt sigh goon whoop gull ware clunk oat food hall heed burke corps zayin tape wage snarf lie moa sim oik phi flog claim goal brain range ceil pouch prowl cuke teen scull bog mitt dak marc mock chime ponce stir limn couch heave psalm cru tray tryst wrong bin mob owl apse chuff sweet cord mick molt tusk cutch wound kyat calve pogge calx sorb plank boa gal foam hawse fit buoy peck chore shiv blind nudge voe gyre kraft pud spoil fugue glare layup reeve swirl lard plod oast raise spill bout gimp douse rhyme vow cant jock size berk milt slay snook eave wire stock wedge drain nob ditz glom haul itch loom lunge pixie stick deed blip card large tone breed lurch quack blot boost fur off akee pipe chase vest hub slip clash cage pawn flew tang whit creel sol hack pride dare prime pug load peak deal pore stray silt spin dim wimp braze filch bawl rein date hurt well flour gorp gum flat sneak fed peen cadre spasm tip probe beef duke belch breve farce graze grant scend gaze blank bulge proof kibe take bee fold wig clone stilt lane loft gat best dhow shin knell pave rend shut skiff waw funk goy feud drupe ruche ask rue yea lend yid folk muck scuff pour deuce vetch par son vac duff race poise sport rod joist ilk rap wuss chord mourn grip hail poon clank tut hull trey sib dike mart gnash spume taste waste carp foul herd bronc huff shire troy globe roust bur wax cadge wow fisc jive mung bight quest niece roast spiel dart kern bis dud fop birr hose dowse horst aye futz eon caff sire bruin crepe guide spell tare patch fan duad chomp adze blag pelt pram thank tom flail dreg booze slate clop spunk thew flank slice chi bound culm pike scam helm maul prat spam dulse suit toff snit genie swing fund scad plunk fay dung fame sprue whorl bill ounce rent tick zoom barge gimme prate spoke drape cape coss bowse flock dome clue suck carte flirt beck raid shoot fridge daze hound frieze lean blurb skulk mope part aught slash swank zone laddie brit wive comp pean fowl kail shine specie stroke scud soar stork splint deign chart choke coil drub vase pound steak shot croft kluge cost lick prey surf your pinch borsht drill wreak recce scape frappe grid bare speak pock bouse drone quern chit bloat crate chaise newt tarn whelk plug gurge curl skip burst chalk stoic breast hour liar trope wield newbie shrine barbie greave boss fizz yegg pack spew chunk cling khoum course boom darn nous redye pump trump blench scythe lamb pseud snog bunch segue snoot surd wine fetch slight troche cark rudd plow doubt step shrub trail scheme jeep strew dive boink rhumb stoup fils commie duct ecu gulp marl shout byrnie swamp cause mooch quaff scrum acne masque drug peal retch smutch grow melt haulm cork mite haste spleen trench heap sled wight zooid imbrue thirst kiang flue tope pluck thrum gean tuque host frill moan battue faze fiend squab topee stab wont shear entree mend maund scant sphere bore zarf cite loin roil cramp trade burn seel flesh lime murk clack feoff scarp crank gripe starve cart clip stew spice wurst mensch wilt hunch scar aba clef teak spout dahl fray sate wild gust roam bright brooch soil phrase furl heat stud mount their tract auntie wretch twit binge coach kraal nape switch bind mute sloe flint parse bunk trow pshaw strum space trill luff slab grope monte rime graph sight club drop slug spiff cask trek flump paean hake lust doyen puree send foyer scent bite torr plash coke dude brawl chute raft snob quill tour gulch coir fret gonk grab heel repp purge aerie skit butte peace stripe troll hasp john meow ole past baste cayuse pome chinch doff yell sort like bulk chide stain quit stow turf glade grand source limb pact drool snatch dong bring touch peke tarp chirp dyne naan daphne band ghee crane hoard sough flaunt hire sect crash grave brad think blame bouffe howl yawl block scrim lynch reave halt grove shawm crouch brae gulf pant cruse notch scoff shave trend march scalp smell cope schwa skive lode frank vend frag mate vice brace tweet bleach sass grail trash mane twin moke gleet shim snail theme caddie creme prize theft decree throne wienie cusk fell skull sneer spook claque squint sill slit splay barm duel trim chap clay forte help putt berth twirl fart genre thresh acme limp grain bant char core naif mint shame thrash wheeze dame fudge koine plait truss bong friar straw plague smirch robe slum stay naiad salve skill bode spat spool none tern roar pinkie guck junk mull rail posse swatch hame lyse reap cheek dust gild sneeze birl gite dunce lodge trove hook peep euchre thong hast wipe bairn groin rouge drawee baht crack crest thunk waive swinge comb strap cinque hoodie gang twine cuisse sluice bung skirl grudge cuff cyst crape pitch snout clap nick anoa creep crier rust zinc dwarf strop yeti buzz inch scone sprint lump qualm sarge bias feat grim rive marge poach strain gree grind screak triode snap sleigh coed knit krait jest prank scream rate stat guard peba scrag spate fuse idol ruff botch doxy rely rank create imam kine kohl exam slack gawk phase reign flay pung show alum belie liege kiddie speech mage chine faint fleece blare porch saint squid goatee flip gnarl plaint plaque stern vault span boast caste feint have hoot stein grippe babe scree mash mess oust treat writhe know mola spurn lade weir throe winch brow flap loon warn stop grasp vole bust dent fiat teat toot kart romp fitch flash spoor lour slur neigh shroud cosh sild swoop gird blaze please glean nerve thrust count smarm bait crow dyad flub jiff ouzo spear dirndl isle jamb shun croon sprag junkie eddy still track lessee weight clod jowl serf glace soiree bane golf swill exec shuck twig pulse bead chin full gleam ibex rinse come steep threat blab swan latch shade payoff herb luge mine bleep boot chew coupe oldie grease prance stem bield swede sketch trait cafe free mask riff canoe cruet orgy coot plumb fair aril chimp inti knurl match slake scrape dolt even fling horde whirl joey scion layout talkie tinct skeg toea pogy speck supp lory staff preach bale guise sprit taunt kvetch woof blast koan laud veil shack fief pint found clique guan morn welt calk quire trier maze flame knish prong stomp axil snoop peewee dork lute pimp veep knoll wick spend spray flam weep sofa pool smog bull chug hock tank cough torsk coco frame drag fuss pick shag dwell trick crunch truism nock vane toast spec niche strut team maybe calm mosh chill scare sense marque thwack bond dock fail swap crust drown forge indie wren brail crime pause verst fraise shrill keep defy fosse tomb cliche horn gross crump saute bass slat seism coda hole user gaud clan honk stoat cloy hawk sash skin ambo shoppe burp oboe papa bump risk grout snipe throb puttee crop kook putz reed stuff where would purl chirk trunk whine lame moire rescue bleb peag tine agree leach brig slot reach lounge yield graft spite ache buck hick tass spine term worm shoat spore lilt roll rump brute plage stooge lord goose greet kneel loco whelm slim eyra twerp value skew cinch whiff slouch creek edit wrack spline batt ego tiff flake rule give tala fake frump mail milo boor pair palm aqua twinge beau jilt muss dole teem issue flit charr purse bask cowl mire pain snip dago sooth steel weave hilt thrive clink drove loan wean runt trot bruit pale sieve falsie balm love real sack mush bone hunt seek knout shake spire breach rhythm gore rack dodo queue luau cheat emir hate redo souse sclaff streak chick prove quiff narc riel brent quake spank thread mood taco gnat crawl skein bonk crypt dread pine slog tight arch cell colt waft budge champ floss biggie loupe weigh cowrie test flare freeze glide paste squeal subdue bate sext tach kyle psych shill reef rood delve sheet guimpe egad kava munch vaunt fescue batch brant churn gorge splodge dodge heist quark shock brink idle noise swain trike breeze clause creak flair coyote paunch bloom toque chock loach hankie bola gyro knock thrush strive realm stack pooch shove flume gloam quail wrest braid wreath smear era squib sickie maxi shrimp parch unglue wedgie ensue urus blight knight caulk payee fleet cockeye welsh thrift bilge gauge starch glitch prawn smash brownie sleight broad rouse squire manse clothe sleek trawl ally groat thill brook roost thieve cleat clinch plump wodge frisk shift buyout trout emu movie squad pierce vendue tale sponge scald druid eta cease mako pursue stymie drunk guest druggie kayak skink spoof buckeye cache skoal spritz plaice schuss pole royal ground mallee wale mosque click plebe stream tweak drudge grunge brake sound stare expo hoick scoot shrike ana shunt sniff donee grump quart squash avow groan truant beech agio hatch strip thrall fight wench barye spliff coulee douche screech guild kepi baddie crayon splurge hinge sprig sculpt argue roach snort stunt weald beanie kiosk twerk snooze price trance break crumb slide build swell tress stanch doyenne kraut grieve seethe drawl anna mara flight chief diva plead phish twelve broil bootee squirt para murre scope ivy scrunch lilo scrub whoosh townee degree fogy mulct valse punkie freight coerce lapse solo dryad kilo seize zeta lulu waltz birch bogie merge helve munchie frown smurf shrink epos curve siege smirk verse leave squelch whisk gloat pyxie mesa chirr nipa tithe prune steer veto dogie route chink slick snarl grace trudge file grate clang clump sloop kudo piece pleach viand whish breech tongue mound drowse phoebe shank bhang steam goby kali bungee bless drake spurt swift brunch taka clout diode obit thorn swipe bribe voyeur fault rale rile imbue kvass sleet copy sucre carve chaff spawn hoagie wheelie brand growl clime feign biota crook cuddy matey conchie scout educe yenta crock aroid postie cameo vireo zamia knave splat equip jumbo torque barre beard crake busby cozy album chino toxic squeeze benne nacre change dogma email stitch bodge body felloe lady mole plain quirk slink given tweeze weepy cliff cloak bract spitz witch chrome jounce slurp naught vodka sprat loris bride topaz gouache mama shirk snare snood choose mashie tinea marquee bluet euro levee these bezel billy pinon pommy folkie scroll inter macaw anil squaw drogue fella madam piton pogey freak knack oxide sprog begum gussy butch cole shard paddy alias layoff frizz gauss carom withe bazar choice testa strophe flack punch bole tierce army blimp budgie grange ratel salvo uncap adore felon situ third belay cirque splotch quilt aisle throng weirdie penne blouse impel kiddo shrug amine scrawl roger chance kola dumbo sonic client churr footsie blunt beryl remit bloke dory grebe speed erect futon henna spathe tenet stamp owlet axon klutz sudor cairn clamp lava verge wrist ratan tayra fluke squat hottie crick rhomb stead cable rookie servo splash foehn guess schism stair mosey cense banjo teethe vouch ditch picul razor tryout quote stump boogie crotch rapid title louse spade yuppie arum dirty eject saiga wharve dream larch calque dixie gnome pique cootie limbo gouge plaid rupee usage chuck jato prink thump waist balas cutis priest clasp mooneye sika stipe monas ridge tile twist uvea vendee etui spare elect furan booty guyot visa basso colza topic gloss phone striate mana blende fairy taint igloo gala ladle chancre zaire lilac scratch glebe daddy rhino pitta rally brisk stake welly droop singe tepee bawbee chant clonk iris stink prang wring coypu dinky strand adit spruce fraud gaffe wince canal chasse pixel bluff gland gula therm zebu foodie virtu scamp amend sharpie passe dweeb geode grill humph steppe fetus stiff allay squish peso avert unbox vowel cola exist scale blond guru nabob putsch wadge prezzie force breath pity stave beret crutch lefty liana onus recto stodge derma sward tody polio solid strake phage stent yearn besot brogue posit tench thebe cruft fiche baron idea largo fusee plunge sleeve midge perch deary olive tramp dowdy male shrew swoon stretch auto echo emend while bema great dredge shelve tiara wagon quoin davit kludge ratio thwart froth mange drench jemmy lassie science sweetie edict jaggy oeuvre praise slang aioli quickie bench ducat takin crimp marsh yacht wile groom piste smack yogi arrow atoll emote fledge mayor shape abohm motet octet gale azote maven pagan slough crowd hula arete church gumma labor sarnie stale badge venue abort gizmo maxim otter sinus trust valve matzo vista whinge farad pika score loony scorch frost oven slant envy vary bevel karat baba ragi hutch mural lemme nappe roble bury choir creed gluon exult anvil caret kappa valet miscue ottar tsetse sole avail diary smooch dinge capo whomp strike beast blotch optic worry copse joint quell basin biddy molar shriek endue dhoti gulag ravel romeo scorn covet stress hitch plant prism wreck compo fakir gourd chela lasso area fluff kafir press chigoe lovey morph stall abut audio cubby navvy porky blood might credo serif feria emo split swarm elide piaffe bloop seine bowel lungi sleaze brass learn allyl carol saury shrive fable bialy exact lily stool thane ruble squall thole gillie tyro ziti decor blini sheathe goalie mousse stile cocci plight memo role sheave suttee tetra folio chyle hobby squirm kudu abhor crease potpie bosom dolor hijab flounce arak unsay zombie logon occur scribe widow musky kishke sabin cutup toughie flitch settee trustee union regal traipse quince byway manor modal thought aura decay radar sledge fossa azure bunco flinch gully bagel bidet patty phony spouse gecko string techy spondee aria snitch veggie clary cynic sysop enqueue posy clutch jenny crappie groupie salmi equal olein remix drought okay wiki abuse manta relay walleye idyll stench bigeye cloche evade sonar cardie plaza oral ale tunny gumshoe cedi hazel photo conga bruise mercy browse phyle throat chevre peony porkpie babel genu saga vale waldo chivy conto hacek schmear gourde moron rifle scathe swoosh adapt robin launch debut arise hypo resin hobo debit nautch rumba ala sahib sleuth deify tango tutu blanch charge kazoo label pula pinto faerie search vara aldol amble humor thrips groove enter felly hoopoe civic lanai lipid scuba atone lota focus sprite acute bevvy morel pansy sidle obi zany ankle condo dinar pounce eagle hippo ultra cringe polyp virtue exit bravo femur sixty nightie bevy exalt schlep twitch burro fanny kulak payout stogie taro mambo quench cornu minim roadie sphinx token mocha navy jury bugle hearse lobby toupee entry pouffe poppy whoopee abate felid bylaw gypsy orbit liken prole screen toffee evil lapin haunch actin lathi lever nacho peril mason carry sinew myna bounce cabby grouse testee mucin unite awake carny beget pinko video tolu decal eruct incus viva gonad recap pupil strafe tuba amass detox pekan sebum creche fondue launce orate wrasse lotus kitty script swerve squinch arras helot liaise perry mufti league busy stroll glimpse array scrump emit limit muddy power oval sconce soma attic excel fovea vigil vicar admin cleave glance rondo furor soda dower embed height viola shtick dona bumbag emboss outage palace splosh sprain evict stele mildew samiel stator kiwi corvee mongo consul folium sadist pledge avouch cuttle rickey sclera item baldy hippie pulque smudge freebie gentry pule advice egoist impugn attorn beware emerge facial milieu outset studio mile dawdle modern taiga dottle impair marlin select menu ditto erode orlop triage durian casque ditty tempo deckle diesel mishit patter playoff radial weirdo haven kwacha tabard statue airbag cero boule bulbil nickle priory cobia lolly stride ohmage escarp pallet pumice inject matron parish pedant poplar bedim ripen rivet pascal slogan tomtit corrie gyrate parget smarty obey decoy junco noggin stamen adult fright apache bigwig blenny pewter widen resend ogle ideal adjure casket palate puppet tauten wadi bourne towhee dirham jarful reread nuance hoodoo jitney miasma critic dugout formal noddle abysm novel sicko uncle urial captor dongle tendon islet retort arbor capon rowdy lapdog lariat object vortex anon repel townie befoul instar locket suborn ambit abjure biopsy sipper asset crazy penni sadhu sedate camber embank octroi kummel ribber alloy image lazar sissy wright enlist layette weary immure panzer aglet altar cobra satin tigon toddle cuckoo legion umpire mini egret sever invest vizier waffle winner duty opine scruff briony casern fillet infest lapful puffin deli opal embow chisel girdle toilet birdie convey juggle temple polka jaeger trochee vassal sura clench outlaw gimel assist enfold adage spread abduct hostel raga cockup excuse median pignut pretor simian cleome harem bookie rumble fatty hogan fabric fallal midrib pluton juror battle hummer silent contra yautia olla damar armlet chukka willet kauri delete format bronze fetor gyrus mania camass bongo rigor backhoe copter occult taipan pony facet podium senate accrue habit tabor aspect conic sprout tiptoe fossil giblet minnow period twofer epic magpie merit reify beta beano honor mature sicken spinel lemma mujik belfry collar insult menage mingle befit metic stance burrow corbel extort liquid applet gibbon goober indene tossup wallop bygone purist rumpus solder totter eschar lentil prefix quiche yobbo kalmia standee limo mummy nostoc timbre ashram abash butty waken rugger trainee turban bedlam brioche cuddle export lizard negate scotch socle sundae descry eschew iodize marcel midget punish wombat ferry fringe capote chalet varlet preempt espy onyx harry marry quota acquit shimmy tomboy widget golem yucca assess opus ethic vomit tappet addax coatee granny pupate hotel voyage bezant dubber nimrod tailor squeegee schmuck cowpat remold tocsin tootle acorn ardor bailee unfit virga alight commix sorbet kudzu barbel firkin slalom alarm nihil bishop citron dimple rachis ripsaw lazy deter satyr snafu squawk judder motor saline schmeer sundry tippet medal recur weenie redbud basque tatty theist flambe wazoo tyrant strait beacon bellow double durbar hiatus lysine dairy llano gorget dale squill cesium inmate tackle chevy minus wigwam amour troupe concha cresol sherry cavy blonde comet behind coward hora kirsch ulcer turret cedar orphan armor lamia ballet fanboy hatred zero affirm appall fipple tangle thuggee pile annex ascot assure levy flange pasty coupon augur oriel metro monist kobo luffa decaf rabble willow jewel thrill fumble regexp turkey heaume beagle ethyne insist moppet vessel easel banian toga coolie rumor shmear mallow halo panga anti apex lessor tactic bonus kanzu organ seance tapir thirty weaken lagan scrimp assent beside keypad kaki boxful walrus zodiac cadet author bewail flunky lingam pastel canton obtund pulsar zither hombre jelly stela strobe synod vegan adverb danish fascia grigri expat sorgo popgun blintz manic sedum floret marrow fitter subset weka beggar employ meddle uptick zipper wrench ideate pellet nyala talus aether sandal scrooge yammer byroad novice canto tumor effect fodder gargle ribose anlage motel airway levant shmooze tirade braise serow dodgem pseudo quagga quahog tympan uphold azide dilute hotpot salmon eland bronco cerate fuddle social rota mommy combat signor verdin logo faqir cuboid lambda longan preppy vanish fancy affect fucus grouch noria guttle ovoid deepen volley nylon prompt samba squeak alkene grantee lavish maroon dada taxi illume sunhat pantie cobble cushat cruise pundit stupid pipit belong citrus nutter tinker tousle etna dally elite morgue study avoid tunic flyway preemie fiscal nardoo pickle pinion missy revolt deny broach cleanse bicep cozen noble savoy sortie masjid rappel sarong single momism sale splice thatch petrel poteen oryx fever schnoz carafe carbon neuter rubric straight xylol oblong outcry cycle omit veery craunch ferret selfie sprawl syrup caftan abet tuna mucor maniac swivel giro iota bagger bewray prison tablet parka collet hatpin mogul nidus tizzy ensign elbow hamper hogtie tissue gadder sunbed bolus moray rival barong buffet wiglet nadir silo entrap natter sentry sexton salon expect negus withy hybrid linnet payday siphon waylay wisent wino kenaf gantry henbit midway retro furrow hansom mayfly plasma raisin hinny column lingua muzhik petite aster wafer nozzle rapist solace amide butler divot calla bawdry pickax zephyr mule antic behave pamper system sigma forget demo baiza vanda jennet potful upload gofer canard cudgel tiepin ibis dilly loggia anger aorta tarot plexus stoma haymow legume bobble gnomon prefab durra adjust phobia elver coquet cotter curlew nugget ukase beauty ramble icon pinna scilla teacup cider elapse inward seabed lemur sauna markup marmot trendy tonic cymbal obtain reason style poppet rehang miser towel gable bother fathom hurry pewit linkup gibber intent staple shiva banshee minium vibrio salpa upset archil patent scourge dowel coontie kennel rumple seaway staunch comma copper pebble aphid carat orang frolic volume dowry lumber amnion haslet relist colon yokel excess lama harpy moral dilate savant celom mystic scarab warren doily ingot jimmy abwatt airbus nonage goody mecca mentor slavey suffix travel kino solon sulky halloo heroic piglet xylene appose bulgur cherry lopper bolo beadle dative docent heehaw parsec fury amuse dolman pipage expend delta survey divan fusil accuse bunion gasbag lockup picket ragout buggy embryo exhume spavin etude pasha gavel umiak upend baryon louver japan pavis exceed gurney puddle redden relict usance annal bedpan ruby potboy brogan revere tartar asdic jakes vital dugong polish relate saddle coma sally gotcha laurel martyr imide lignin smiley smoothie heifer nitwit ripoff alkyl cuppa piggy toxin aiglet except garble retain elope cutoff expert accent influx axiom aerate chyron efface exhort velvet minor puppy cutter deaden garter koto rotor salsa bestir impart manioc muscle nibble prairie hale necktie curet picot relax brandy ruddle hazan aigret kernel outdo theta define forint googly nation racket schizo arpent bemuse lugger lapel oxcart symbol penny absent frenzy poseur tiffin typo anneal damask gabble jigger camel deity mealy medium exon aviate napkin trigon scrounge proxy sextet award carpet employee cycad attest hearty inbox llama balboa villa cranny glioma crosstie vocal wally bangle quaver sari maser pilaf renew galoot denial vervet semi tidy goral covert geezer orchid mamba tabby bennet dotard trowel alto odor sabra setup wizen burgle carboy purine skivvy anode hydra chippy lyceum normal tussle puma comic enate mukluk detent marvel embalm ethnic muesli lido essay resow torso bettor cosine assign catkin larrup outfit agnate jackal bigot gamma bureau monger pastil galosh quango holly clamor tanka tapis arouse invert cyma alley cutout gorgon quiesce rhesus magma sepal banyan robber acid argot kasha whole piddle denim stole peddle carpel outfox wigwag missal scurry gospel nisus midi baton forum saloon catnap irrupt middy coheir impend smithy orca agnail gopher sachet nappy encyst knawel benny logoff bowleg laager motley pavane affine grandee okra assay deicer jiggle atom abbess byword clonus cornea godown rascal axle alien engage mescal allot leper dipper mongol myelin sirdar affray digger admit curry gambit ketone megohm dhole botnet iambic misfit punnet rigger pita meson calash dewlap escrow victim ousel albite guppy orris other octane tittle buddy claro booger myosin nova curate meatus phonic alcaic steady stable theory guinea softy umbra caplin vector kina tenor flagon peahen rotate envoy oxford abbot query entomb immix navel teddy expose impact umlaut bailey darken linger shekel tingle typist paisa augite evolve titi index mapper tonsil wattle petal choral claver secret sexist stolon sunder jiffy croton goblet slipup angel butut jorum kebab nanny serin citrin hoyden pillar pogrom coho titty bowfin holdup peri fatso henry meany anklet mutate upshot bozo talon afghan fettle rapper wetter cereal pomade juju actor dobra bypass clergy duplex tranche xerox ascend nybble bluster discord falloff ingress platoon turnout serum output reline stenos caisson conduit exhaust marline brolly deceit indict giraffe ingroup plosive bicker sorrel correct outland tutti bumble handle peruse schnook spiral peptize postfix digit airbed haggle lexeme parvis mongrel pothead trouser oxime popup ketose prelim winnow prelude rooftree surface hymen amerce damsel flurry accrual dizen discus chopine hardtop inboard ingenue maintop oospore presage ogive myrtle flitter grizzle inkle honcho ruffle upside visual convent disrupt rowboat subbase recon infect python homburg barrow mizzle tarmac tarpon cudweed eyesore outdraw dandy houri deacon lobber nutmeat tollway order addict domain oilcan result hatchet phantom portage schmooze sickout thermos burin betray hatter uprear beltway cashier catwalk ragwort roadbed trigram expel abduce triumph commend promise windrow align unpin annual poleax uplift rattle recipe tapper pelisse cisco burial outbox radome sector smegma update gumboil outgun pileup collard ostrich whimper donor primus tarsal crabber emplane palfrey subvert wacko sample alert hijack regard revive brocket climate entente perplex specter tapping alpha dickey doodad gratin jockey jodhpur tallboy tally peepul borstal license abbey carob piffle brasier distort affix dekko tammy jurist auction deplete mastiff swami zircon budding highway rapport zloty cowpea oblige siskin earmuff shyster gravy hymnal journo plural footpad weather rehab gringo ravage rustle cryogen message panther pigweed prefect topmast hobbit passel scalar digging palpate armet rabbi hussar anthill lioness pervert adept varmint diwan closet goodbye grappa lepton fuchsia grownup philter roister stopple couple outbid ocker sabot divine muzzle unpick cockade variant curtain entreat ament model monad mascot stifle checkup mantrap skysail annul daily honky ripple sashay pfennig warlord eighty goggle hermit jabber repute stylet verbal beermat pillock ester favor media bustle refuge regrow sambar treaty conjure inflict perigee sparrow lyric dispel jugful chirrup savvy campus nelson prenup privet archive octad onset adjoin bailor barite equine notice parlay sloven spigot busgirl aldose potter drumlin impasse nostril surmise hyrax sitar visit compel ingest mirage muffin baldric bighorn coarsen convert dragoon topside gator dunlin hexose antique contemn cripple express patriot pricket hassle inrush menace presto unlash foumart kenning meander drama pivot ashcan ingrate ciliate enforce osier second millime outlive pallium idiom tannin malmsey potto tonus accede rammer elate gigot attire bidder morsel ribbon boulder cossack leaflet biped cigar pedal peanut complot stopgap divvy suitor compote expanse gainsay outlook shuffle ichor daemon gallop bedsore isthmus killjoy shingle slapper bandit impeach filly command cutlass satchel ready uproar corsair padlock provoke outsell aside clinic ensure gallon sundog wimple consign rostrum tankage adduce random coterie finance baggy ducky incur toucan zealot airfare capstan deadpan launder premise studier suffuse avens shako allege cannon micron unlock carrack explain bantam chichi parcel permit virgin culture dadaist neglect savor dodder gateau powwow mudlark speckle whipsaw event bister damson dingle warble impound malleus selvage stirrup bovid saber wussy gamine expense letdown belle desmid hamlet morgen musket nuzzle spider rootlet subtend adopt chorus magnet baccy brunet famine jotter mudcat pidgin flowage hairpin sunfish jabot newel backsaw dislike pentode pismire wafture patsy pigeon toyboy gittern residue dacha busboy coucal tenure aggrade expiate glazier taser rodeo becalm detect eggcup feline ripper suckle cocoon teabag aggress toeclip ember herbal jerboa nephew tundra afflict consist espouse empire hobnob impose senior venture warlock wetland fichu cosset tumble meerkat redskin ruffian disco julep hollow cubeb enact mammy pinup blowup demise trophy cluster courlan instate bulla hovel panel dapple tropic bandsaw chemist tintype hangup hiccup higgle nipper thingy heroine placate startup tigress plugin pressie harvest combo usher shanny tariff beseech bestow demean phyllo racist topper blarney crystal hayrack hilltop premier alkyd halon desist mutant farrier kingcup refresh salvage skydive thruway coral enjoy ascent corsage monster relieve vernier cello libel kalian collide duchy intro allure beldam inflate snuggle tetrode infer silva hunger serial tootsy artiste burnish leftist commit embark bedrock consent lattice stickup hyena jogger catfish cowhide lipread lungful pochard thimble invite feedbag bunny cabal eosin foray homey nexus codfish nogging topknot evoke carhop poison rictus roster aircrew deviant frazzle ganja cantle captive virus plover skibob flexure cupid tenno basalt gibbet resect harpist outport outwear succumb topping annoy derby draftee bugloss fiefdom minuend theorem calyx finis jolly chicane exclude markhor unwound madden pother satang culvert degauss peacoat precise ablate caucus option reduce fluster glisten terrace turbo tidbit admix boxcar bobsled cottage greylag phaeton copal local skerry tetrad trounce grabber towhead impost kibble adieu erase boggle furlong furnace pipette trickle arctic sorrow vendor pretext redwood sunroof taproot vitiate affair insure signet spirit gravure pension apron oppose criollo doggone aspic bobby quipu tenon vixen barbet blazon phobic shorty gudgeon miscall session sunsuit atlas become brigade ensnare mobster support cutey tuple veneer forfeit oilbird terrine error exert fermi ninja velar inside siesta status gangway precept burka cocoa visor assize depone worsen actuate herring bible endow rowan fiancee upbeat wangle wether mistake pieta artist gumtree nature sapper bombard lingcod pigment special unfrock wayside sedan total locate sliver account harness stypsis erupt modem surpass legal tutor borate custom balance country godsend color egest inure lappet stylus poofter glory ballot buckle county raffle brazier oversee telex thermel pokey banner godwit cestode college lozenge broider nutcase dampen friary uproot outface tabla moment shinny urchin bathtub sequoia tankard hexane oboist pistol plenum voodoo blither audit senor devour enzyme clobber earnest flatten inkblot trimmer apnea berlin coeval deodar shallot gamut dentist dustbin abyss grille crumpet gumwood tangram agent begin besom mavis reseau rollmop satiate student tarry hallow lubber bedroll burnout legroom cackle charlie hasten manage enlarge logger moiety dispose stencil reopen simper doorway realize panic bugbear concern estrone baobab bodice koodoo runner nourish shotgun swagger deject spinet zapper bullbat endorse fatwa circus cutlet nickel begrime mistype rampage climax grison huzzah sawyer requiem beset curio awardee extinct profane segment tassel outpost pasture piaster angle balsa castor damage rustic habitue railway smarten snifter varnish coven abrade holler import lotion playact spinal prophet trunnel umbel usurp bromide gilbert griffon extol hubby vapor vertu willy sockeye referee upright volva brazen divest chrisom demesne segno appeal cosign revolve sherbet shipway liger tesla gusset hornet lascar dogfish glitter ouguiya outcast gutter major sibyl cretin ravish hoecake slumdog trapper fauna golly solan daikon footle penguin skitter letup billet address deprave garland planner riptide upstart civet gamin armful trivet vespid flipper gauffer ardeb extra zoril fondle sensor purpose mamey gannet ordain furnish midship missive program teashop radio guenon manure posset pretty vesper vitric entwine fiction grapnel mudflap steward pippin uprate dewclaw heron avenue barhop decide dimmer foster guvnor hurtle tombac turnip bouquet dossier enclose vervain zeolite naira privy stanza cottier faction handbag payslip turnkey sully apogee census fidget orpine revert bedroom failure swatter hover micro pacha farrow bagpipe codger egress milord morass offset storax curette enplane nominee envoi heckle pastis serval valence taffy settle fitment cacao nomad ouzel graham decline diarchy rootkit abode claret dybbuk gulden redneck nougat bollard chinook doeskin hellcat mazzard pygmy hemmer redbug compere dominie coati arrest panto aorist portal duchess flutist maleate trample trident lorry sable chiton faucet season abscess grugru mellow sequel biotite hotcake chufa exurb riata cockle dorsum combust lantern adorn nekton bedight regrind canon crony nigga rowel bushel heptad septet enchain fermion milldam genet yahoo barrel begird velour bogbean fritter wahoo depict heaven member pharos sickle treble corncob layover mudroom jello magic burbot uptake duckpin lindane respect seaport sunrise explode nostrum peacock revel vandal keynote steepen cavil genome makeup medlar crayola haircut mindset pumpkin rollick shatter wrinkly answer buffoon catboat cornute dialyze empress henbane hussy baffle gaskin bobtail mattock parolee plummet prequel private trireme banish biopic enwrap extern humble concert paddock ribwort texture workout covey mafia brazil tenpin advance koala limen reject stucco tremor diopter grumble dummy berate glossa agate poilu attend deejay muggle musjid redcap suslik bathmat chuckle cuprite grizzly peerage bully expire trifle airshow pappy antler emblem fulmar pullet vertex caudate englut chariot foxtail reading slobber testate exude daimon nobble opcode serine workup cyclone paisley dicot cachet canvas divide gerund martin stickle hello parry titan foment fusion jigsaw maguey logwood idiot cottar drugget slather webcast kalif costar retake troika toenail genip accept menhir prefer cowshed phellem abseil encore pocket greegree dissent midweek tachyon oxbow raven escape mayday astound burthen chagrin culprit fanfare receive sawmill sonny minuet premix airhead cornice soursop abase burble happen pueblo blowgun bowwow cowskin lockout ripcord suction candle esteem manner outrun fetlock linkboy package shutter waybill trepan bargain goulash portray posture torrent dogleg shogun lapwing putty bridal gewgaw ravine runlet concept oarlock sapphic tramcar yodel debtor elude behead coffin ration sexpot stereo crusade embroil scuffle achene misuse seesaw sinner tinsel unlink inspect keyword plastic snowshoe inhere guava noway wimble deceive divorce seedbed banzai censor garage milline outgo enjoin capsize shutout duvet locum absorb rocket snapper uncrown logout meadow unroll crochet grackle spaniel bagnio catmint chalice cycloid handsaw trollop final aerobe attach geyser napalm profit brindle culotte patio rosin dandle hubbub netbook patness slacken victual woodlot radix admass excite nucleon limey hernia quarry cattail dustpan lockage khaki baboon brisket mezzo misdo dynast enrobe haggis helmet phenol crumple reflect twosome addle batik bingle tenrec auspice handoff outcome quitter redbird updraft barney extent raddle actress dogwood hogweed holster kestrel saxhorn lackey lessen vestal cadence network emmer mammal archine dingus osprey peptic guerdon twitter cabin forty tenia viper ampere dullard stagger pickup pilfer cochlea earlobe handout saphead bebop motif legend midden opaque trusty barbell earmark lucerne shophar ligan bullpen cashbox custard shallow shudder success detach goblin madder sublet wonder egghead moisten devil resist shofar becharm carpool comment cribber resound carrel earful reecho connive conquer mortise traduce bedew donna gravel mistral junta muddle premed rebuke punster selloff singlet steeple warrant adhere mugger gherkin outtake adobe delay toady barter edify landau region simoom tercel grenade knicker roebuck totem cornel mantel pitman maestro booby tummy cobweb opiate recuse unwish cologne oppress quizzer dosage pepper police sulfur dribble epergne corgi pampa tical utter dollar skyline lexis medic careen foible pauper poodle anguish ferment freesia ringgit chapel maltha shaman appoint bagging fortune griffin laundry matin insert wherry cranium boson dizzy salol taboo leakage upper cobber palsy curfew fizgig resume hayfork outlast codon alibi ordeal zymase corkage earplug pylon digest encamp clyster crupper driblet podcast prevent lintel outhit jawbone placard scumbag guzzle tiptop decrypt unstick husky bedbug bionic corymb fillip kuchen pincer bulldog celeb level relic encase genius lummox physio fadeout hormone inveigh darky expand lagoon blogger jasmine milksop remnant syringe bugger kowtow megilp respond daybed enrage fallow octant leeward stomach variate jihad liven lateen lineup flypast sundeck takeoff befog pinny raglan broadax dehisce glycine kumquat sheriff demur allude fracas hurdle produce scumble amaze folly racon gather cordial crimson devolve grunion rescind saltbox abide coley maple balsam kindle mantis people rename abscond absence unclose windage empty relish pretest replant alder human spile peruke subway tautog apprise chimney fascist fifteen bimbo jetty devoir vision cultist shakeup heavy byssus octave prepay barroom leucine perfuse flexion gimmick ingrain speedup woody duffel fucoid reboil regime somite compact protist bemoan congou armoire unhouse melon ninny gunner stertor upthrow defect bumboat chantey dogtrot gimlet medley pelmet raster thymus warrior workday netter sallet caustic foresee gladden hexad mimic cancan lowlife respell confer trilby chowder cognate ratchet abamp porgy glossy casuist rebid bundle mortal skycap wiggle pillion canna cubit nasal advent mercer motmot corral defame elute vinyl bemock factor mullet costume wigging bedsit google horror infant pigpen gadoid gander allow assail colone kwanza thorax attempt eelpout freckle seawall shoetree silence unction advise tagger bowknot runnel inkwell diktat earlap sunspot detain endear flippy lipase plexor crinoid propene guayule cassia logjam hackney pilgrim subjoin cither dudeen revoke bonnet dainty hyphen piquet socket winkle airmail shamble tagline tribute lindy potty caudex extend upcast bootleg figment sniffle tonsure vantage alpine bistro gunnel cocotte descend jackpot mustang stepmom joule cantor dovekie hashtag hoedown someone condor maillot dipso ransom shindy walnut flapper prosper tarweed sesame approve finback argal poppa gadget lionize stammer aloha wamble chapter circuit suppose waxwork fifty cosmos dismay jumble piazza mishear emmet forgo missus wicket outward predict parson congeal flora padauk defrock hellion capsid fandom gimbal benzoin endgame prelate fagot weasel grubber legatee algin cupel endure heroin kidnap timber chutney garboil phoenix toddy udder chiliad payroll revenge stammel await lumen mudra marine carload compete cutwork glimmer rapture arcade papain patten booklet dearest encrypt holdout lineage macro pecan adsorb soften fatigue prattle scruple bagful loment council callus boyhood limeade outroar tropism bricky qintar mission florin tughrik turmoil doggy hajji login basset cement mishap bedhead whopper gumbo verso center steroid bogey merle attune hitter pottle ratite sawfly logbook preview ternion basic panda taxon cradle andante myalgia percent ammine paella hyaline demon peewit relent suburb tippex valine foxhunt machete permute truckle warthog rewash rummer congest bandy action augend dahlia gender invent libber pommel boudoir deflect hopsack immerse kickoff trapeze trotter conspire alkane cyborg fatten sachem acquire prepuce access johnny magnum virion condemn gypster hallway woodland numbat trisect whitlow hopper junket ovary pinnate abound tarpan apprize biennium carpal chapbook conclude outweigh gharry glycol boxroom millrun rummage goethite abvolt aplite benzol guffaw russet tandem handset sellout stridor cellar cental outlet spastic wedding escort fiddle manual remain berceuse mudguard postpone bicorn fishgig flatter realgar treetop inkstand teakwood macron ostler bailiff censure seaweed cravat dagger mashup blabber factoid subtype divorcee cherish linkage pummel ratter recess introit pothook unclean foxhound gaslight areca donjon hobble toecap clutter fashion rampart flannel refugee jingoist rucksack bicarb excise liaison chipmunk bedder bethel cousin babbitt brewage discern outcrop chivaree submerge cougar consume dropout jonquil offload vanquish limpet carjack handgun bookmark giantess scissure surround undine gizzard dungaree keepsake brevet loiter whitey bladder castoff cowherd modiste cockloft premiere standard teardrop agony bulghur drubbing indite litter oppugn bethink comfrey hangout stabber elegy falcon tripos besmear shelter tumbrel archduke goofball cutler putout convene hillock plastid skidpan wryneck sclerite direct ligate breccia pronate publish sunroom cocktail huarache subfloor woodwind inseam reckon airport slipway mesquite straiten kipper hundred slammer teacake warhead bluebill licensee catsuit daybook gazette quintet lambaste canyon palter rubber ballast scaffold admire floppy ramjet sunbeam doorsill windburn capful secure archway crosier eyeball corium kaiser minute tinkle airlock centrum misplay peasant headrest millrace preexist ganoid pelvis couplet histone oersted cockspur spillage sprocket forage garrote harpoon misdeed turnoff gradient guaiacum regain titlark bulkhead slumlord donate propel stapes tanner visage outgrow tempest forklift lambskin amount cavern crenel injure beanbag outburst dangle hazard chapeau postbox backroom blandish ambush enmesh salute inquire takeout freeload hawthorn masthead shutdown voidance aoudad benzyl bobwhite newsroom quagmire railhead hickey leaven foghorn sputnik flywheel sourball struggle attaint scallop tonearm ersatz tipple hauberk outflow outstand playroom common effuse reshow desktop thicken eggshell holdfast delint endive ignore jingle syndic tattle psychic grandson squabble cohort bracket earring sandlot deportee downfall eyepiece footnote botfly bridle hayseed mistime laureate tollgate uphill bornite phoneme rethink portrait hurrah chateau gambrel hayrick hideout vagrant arroyo kelvin simmer consult gestate service succeed blockade earphone headwind printout earwig meetup eyelash scissor skyjack handbill concur langur mileage theurgy vampire henhouse encode mantle sizzle sundew caption classic shorten barren bauble borzoi jangle shiksa clabber denture dictate flattop lapping toolbox cockcrow landline surprise swansong threaten decade metier notate impinge plasmid wetsuit chloride hymnbook prismoid chroma tambac noblesse deride margay pinyon satire burgeon outsize preform sculpin soloist frotteur hiccough succor airship chamfer curtail tapster turbine psalmist funnel gurgle imbibe tampon weblog hamburg shuttle roentgen bobbin galley enchant holdall panpipe suffice restrict figure penult snivel caitiff kremlin maffick younker princess assert parade busload extract rowlock trinket intrigue thirteen wainscot estate raptor teleost lollop megrim papaya vacate biltong eclogue bisect niggle whiten droplet gestalt toughen blowtube hawkbill mouthful entail gaggle turbot necrose coalface taffrail cleric cowboy dehorn gasket spirea cricket magnate transit hobbyist dammar equate flummox hackbut impress muchness truelove garret hangar armrest caseate construe languor viscount garner quarto secede baptist coition zillion brabble bedstraw keypunch cinder dayfly parang tasset thicko inverse madwort diagnose disjoint hyoscine pawnshop pegboard armpit jersey notion antlion complex implode mallard masseur muskrat outlier mopboard dioxin ruckus sterol knitter moorhen thyroid announce rondel bayonet duelist flyover freshet hotshot retract wildcat cogwheel dickhead dacoit fixate gypper jacket legging tighten deploy muskeg sermon wabbit compass jaywalk journal pianist badmouth porpoise watchdog callous nitrite persist toolbar backward dobbin fetter grazier replete sandbar killdeer sprinkle eclair heyday violet armload midland praline duologue dabber galleon halberd humming worktop hothouse hosier inpour junior museum shackle dollop saurel suture hatband oatcake ringlet flagship purveyor barrio efflux iambus gamboge grogram contrive headcase upland vacuum bespeak biplane carbide chinwag cockpit hydroid limpkin humbug ligand neaten obsess paddle newborn ratline witness huntress subtract liquor waggle ashtray hostage kissoff locoism titlist cancroid frontier medick morrow muumuu sunset schizoid songbird tipper triple blossom conduce hostler latrine probate reflate spatter boldface serjeant alcove cholla famish linden pretend sausage trumpet contrail stirring lupine diorite handball borage garget rankle mugwump poetess presort sabayon tendril vitrine deepfake flaxseed hooknose jumpsuit woodworm frizzle gumdrop spangle spinner upchuck passport mislay submit tripod ribbing tiercel canape hairdo chetrum galumph ptyalin salpinx downhill ashlar assort bullet potion refute cutback lanyard mundane prevail sharpen sundial milliard protrude lector myriad nestle satrap cesspit commove flatcar cartload assume ellipse jubilee betake cartel lipoid mobcap opera locknut mudpack stressor engram peavey poncho macaque machine roommate harass bighead tremble redstart cherub invoke fauvist husband viaduct anthem bitmap bungle diatom absolve ascribe tipster daylight transfix caress denude patron mudflow soilure trekker suffrage bamboo burgoo byline doodle giggle oyster person savior sutler bramble pissoir quartic fastness munchkin gabbro litchi nettle pigsty shandy tuneup achieve scherzo soupcon coiffeur biggin gamble surtax trestle dinghy nubbin enthuse freeway nutpick rosette sandbag redshank southern dither grivet reveal spinney towrope flapjack enema veejay collins fixture kitten secern blacken disdain eyeshot marmite papoose preteen flysheet fornix gaucho jaguar moujik rapier stupor nymphet pervade seclude province roadside coleus bearwood arrack cohere harden scanty blunder cowslip mapping backbend behest darkle depute mizzen frisson haddock bullhead canker savage bradawl caltrop chantry furbish reverie shebeen befriend drumfire cohune cumber curvet mussel matinee twinset chitchat frivol citrate oilskin outside trefoil lungfish pushball shipmate turnpike currant outvote garboard masseuse rhyolite exempt toasty grayback phalange petard pintle crackle jackass sunbath tension prologue runoff dasheen paintbox wildcard sestet pendent pulsate induce ionize pastor resent rugrat collate protege shimmer smidgen bankcard teapot coinage deviate earflap finesse oxheart snippet advert fardel mantua pardon violin witter betroth compose dumdum ethene calorie rhizome brandish worksite nurture trepang furlough playgirl bryozoan bullfrog betide globin adjourn chortle dubbing hachure kolkhoz placket brickbat moonwort precinct grocer grovel muscat zygote noncom kneecap lambkin marshal misdeal bushbuck clambake cryolite dioptric pondweed stibnite boohoo barrage verdure airstrip heatwave outfield wormseed tisane suggest coalmine gossip cornrow crumble readout protract sourwood tightwad madcap balloon bookend fortress ringhals template workload curtsy dibbuk eyelet garnet glacier hoodlum grosbeak yarmulke brassy godson harlot piston rewarm devotee pregame swapper shredder throstle mottle version nuisance pleasure malign catbird catcall courier fasten rattan bandbox outpour boodle oxtail waddle freedom mandate propjet provost wriggle reexport bedeck floozy sailor wobble cipher garcon hoover potage fleabag gesture heptane outrage addend carton cavort frailty prebend terpene shortcut border diddle poetic redraw indulge pintail kedgeree dabble hubcap rotter trenail unbound workmate halide pyrite ulster doormat narcose reforge spanner meteor closeup mediant retinue spindle bourgeon postmark burden snaffle backpack restroom straddle pongid riffle sadden sparid piebald toehold fountain handcart kaoliang talent longhair midnight stinkpot cygnet outwit peafowl refract childbed muckrake bonbon fusain loosen teasel coxswain hoactzin axseed enrich joggle chipper involve upsurge agora arrear beaver caiman gadfly czarist observe predate hatcheck showroom thiazine corset purvey sequin tenant styptic airframe dockyard nonsense attack butene nutria ticket abstract catchall puncture sunburst billion quieten weekday mongoose mortmain tarboosh sonnet charade sickbed stylite causerie anoint beetle cupful delude homage lament blowout comrade gnostic niblick whiskey raceme sitcom sarcasm leapfrog finish locust tercet tether tunnel centrist engulf pander weevil ballcock mallet sartor tureen airfoil enhance gunboat survive diastase fibril abreact drachma fairway misstep flavor pimple ampule bulrush spousal bluebell fluidize button filter mickey static choroid sackbut concrete hangnail ringdove sailboat forbid suntan zeugma migrate saltine outpoint bovine curdle pantry renown exclaim notwork perfume subsist future nuncio narrate dibble triton acetyl cicero deltoid glister maxwell headship boffin narrow preset dwindle oblique blizzard meltdown midpoint ghetto toggle bourdon dialect esquire tripper encroach earbud psycho zoster skylark mismatch needle pitsaw remand runway allele bellhop dropper wrapping cahoot maenad mortar offense ballroom gromwell mainsail millwork misstate trillion neocon wiener engross pursuit quartet pulley renege southpaw beseem divert jostle cambium cowbird cowgirl hydrant attendee burnoose caliche hairnet intrude thinner dipstick steenbok antrum hagbut herald fissure sunburn lodgment enroll kidder tomcat despise nobody repaint triplet tartrate babble nudist pistil syrinx pacify cryostat patentee hotbed lovage dastard lugworm pagoda fragment bubble diaper regret sticky adjudge agency subplot mandrill promisee dazzle follow radish serape cuirass outride woodcut fellow womble garnish promote skillet imaret partner thallus crossbar knapweed splitter whinny cupule occlude duckling enrollee estrus incise kopeck colony redhead stannite radian shanty sinter wivern comedy expound foundry grampus upbraid crowfoot footmark wallow beehive cupping oddment airplane bulbul gerbil hotkey plowboy prickle sophist valance glissade plantain setscrew accost assoil emigre dyspnea seashell bodkin caveat drivel office dowery kunzite rockfall silkworm swiftlet confab hotbox metric parrot struma styrax narwhal whipper angstrom beckon repugn tineid hornbill seduce rosary craniate attain deduce dolmen intern sampan ullage karaoke neonate chestful collapse pinwheel lawyer nutmeg headset parody precook protein subteen snapshot washbowl wayleave mugful brucine chopper declare deutzia surveil crosscut palliate pinprick warplane exodus barmaid chicken neighbor solstice newton trauma exotic bandage cowhand premium deadness spoonful eyecup artwork bitcoin quetzal twinkle fleawort misprint ptyalism mumble convect impala govern signal gillion joyride cookbook denounce mothball cortege plumcot elkhound cubist cullis eyeful oocyte chanson cystine browbeat dethrone topple seaward milkmaid crocus gazump summon ableism avocet muntjac siamang solvent lapboard appear twenty crevice deflate ocelot royalty bedaub pawpaw forearm gearbox pietism comfit falter gamete kettle chasten engorge hayloft pollard subhead guggle blubber crampon digress hutment poetize winning blackleg staysail bolide redact rodent teeter yogurt roadway souffle drumbeat ogdoad zoysia liftoff sackful hillside bearcat whipping lancet relink outrace fizzle goffer instant laicize ablaut almond sheila heiress copyist glottis temblor thistle cashew defeat picnic socage detente foxtrot kainite thorite mealworm nightjar bazaar eyelid station tarball ageist impute murmur protect recluse hairgrip clevis merlin vestry pudding teatime meatball tugrik yardarm softwood steatite better ermine riband zinnia applique enlistee jobshare neckline chappy possum gallant postern punning redound routine skittle tatouay effort packet target uprise viking applaud devoice passive upstage offend pastry sultan compeer ruction doughnut befool cursor pillow narthex vaccine surplice befall cognac oscine bridoon eardrop graphic shrivel simplex hockshop surrey dogbane revile chamfron coquette hogshead meringue warden saffron sponsor brooklet sawhorse shaddock hatbox kidney banknote cassette budget mangle untune inflect percuss vamoose farmhand dotcom menfolk shebang reassume lowboy pestle rabbet barrier bromate pillage pizzazz romance glaciate credit darnel gavial adagio collude flytrap indwell marquis mutiny aesthete soutache gobble huddle shutoff waxwing chastise messmate madras paynim salvia tickle orchard subsume trundle skirmish lutist upward debouch misname mudflat pastime verity cancel massif okapi telfer clarion defense foldout headpin myeline parboil download aspire hookup meloid recoup million project redoubt betrayal chowchow dialogue softball hadron ratbag rewrite bursar cohosh errand hamate sierra clupeid migrant neutral skeptic besiege excerpt champion repent medusa tektite donkey clypeus rhubarb marriage anther cornet enlace kirtle florist hacksaw nylghau weakling wellhead workbook goiter outlay toerag refloat canine demand bullock fuehrer ipecac rubbing beanball foxglove klystron shagbark wardroom accord backup bobcat duenna suffer outsail voltage juncture nutrient mahout upturn coexist diamine mailbag postdoc traffic flection playsuit spinster cowage impede salaam glamour massage scanner snorkel swelter cobnut potherb slander workbag thespian borrow chacma creole stiffen convoy entice nilgai badland oxalis unguent disguise finial garpike receipt stylist bookcase deafen dimwit festoon quarrel recopy trombone papist carbine jawline evince physic towage windup chigger chunter headland spitball billow casual jitter danseur fathead surety compline schooner shepherd spectate marble wallet bassoon centime fractal shindig lychgate stockist hector repeat etymon kingbolt stoppage margin tavern turgor lobworm phosphor benumb mackle retune dauphin further livery sardine neuron palette sardius ballgirl scrunchy aerial demote gobbet trogon blather rentier backslap frogging jerkin pulpit rental blemish perform wagtail brunette fleshpot invade parley beatnik closure eyebrow wingtip barnyard checkrow bryony coddle parent tattoo biofilm chignon maraud vittle blowfly despair sitting conoid jungle nagger physique mosaic cutting fretsaw luxury derris espial onrush impale percept ivory mantra pentad carcass contuse detract eyespot mouflon vagary fallback cuspid orient planet summit feedlot leisure cincture markdown moonshot gullet lichen pappus tricot agaric phyllode dactyl jobber mummer eyeglass language hopple method perish affront balata halyard soymilk stipple thalweg handpick ngultrum voussoir weakfish dustup kibitz maraca outspan papacy perjure fastback elemi latria invitee pushpin canoeist limbus stigma editor abbrev fiesta bewitch dogsled mimosa birthday headword trackway caplet labial sitter tycoon webcam airline enclave technic whisper slipknot jujube unbend advisee potluck goldfish sluggard snowbank galere loquat nympho subject coiffure linguist scission arsine maggot menial soviet ensile tambour biathlon tailwind underlie liqueur hornpipe potsherd soapwort wristlet dissect outline sordine beefwood clifftop dinette pattern saunter soapbox bellwort pieplant cachou fibber reader wanton hassock obviate tatami closeout pothouse faquir rector cajole cascade retiree skullcap suitcase unchurch camail anorak landmine adduct avenge cordon gambol condone playpen docket ritual tumult upwell abridge hearken craven hackle quiver zigzag anuria fluxion hobnail buzzkill cookware surfboat victor bivouac fishnet misread salary shoehorn supplant armband pastern tarnish bestride contract valise praetor upraise graduand handclap monsoon pitfall essayist afford rundle shovel canvass honoree preface seafront buskin native relief bulwark escheat henpeck policy recount commence reprieve opioid hemlock stearin fraction hustle riddle tubful blivet bummer iodide pennon harangue decoct fuhrer tartan cacique lenity lowbrow muggins sandfly triceps shiitake parlor tatter bucksaw enamor faubourg lunchbox jampan pompom ramrod behoove dockage palmtop pyrrhic slabber tamale diadem eaglet ignite kosher gluiness hornwort ballad facade harrow legate newline rarity cromorne kerchief vestment westward bounty murphy phenom photon popper tensor ingraft fairlead practice scorpion flexor patrol whammy hydride obtrude plateau scatter slither subtext trouble bollworm curlicue auklet ennead ginger kernite torero pretrial wingding presume tantrum coulisse turtle bezique manatee payback tugboat batten bemire quorum stunner shanghai zoophyte intuit angora campion haycock cardioid dragster thousand vanguard lolcat memoir secant skimmer affright flatworm perceive snowball motive sunbelt whippet bollix muffle quasar whimsy bugbane cruelty mordant brainpan appease circlet plotter haystack mistrial laptop proton carport goldarn inflame peeress barbette downtick kickshaw plumbism append arrive behold extrude torment jongleur junction speedway stampede taxpayer lesion powder titter acedia bootlick plodding ogress thymol weapon athlete forkful retrace spirant klaxon ragtag believe recline quadrant raindrop hardhat harshen pigtail spammer callback playbill variance affiance ovule acetal buttock buyback fondant hipster contrast stoplight halfwit paywall testbed uvular millpond rickshaw recruit cellmate hatstand wingback fleapit medico pithead nuthatch tracheid downshift subscribe lunette creature junkyard mossback tungstate felony origin prepare graybeard schnozzle asylum skirret bdellium christen poltroon workflow alula banquet outback parkway playlet skiffle termite dispense elixir enounce poniard tearoom hearten parfait phaseout coaming penance freelance cardoon deictic problem cordwood dumpster tipstaff whetstone ballade hardpan bullring goldmine squander throttle blowtorch newshound exploit leather birthmark conflux fanzine perturb sapphism sunglass jointworm onslaught scrapheap cheerio heresy theater upstroke citrine hindgut lookout mollusk fission infract seabird clothier shakeout redbreast dunnock unblock unknown bookstall chairlift coalfield blowjob dungeon rejoice mealtime skinhead waitress arrange greenfly downgrade translate adjunct songster threadfin deputy pennant scalpel membrane outskirt shortfall destine embody kingpin bootjack paycheck poolside crookneck cassock secrete tankful washday wrangle calliope clubfoot bullfight barrack commune kinfolk musette stylize unvoice landmass wildfire accrete argufy boombox pinnace purloin quietus showoff brochette mothproof staghound syzygy axletree critique arena scrubland tailboard chattel hegira pathway plosion chauffeur welcome airbrush rollback sunscreen frustum kitchen mediate poundal snuffle seigneur headlight compare gauntry hydrate skinner stutter dendrite workforce evacuee tuppence dispute isobar lockbox sylvite twiddle prostate backfield boathouse construct midwife tricorne birdbrain emoji confide obscure boatbill gauntlet quadrate batfowl becloud diocese gassing tieback include tiddler meshwork technique gradate tomfool escapee shampoo slattern subspace frostbite pipsqueak comfort cowlick chatline exchange gangster temptress compute orphrey salami sheatfish sweetmeat blanket cinema jackdaw reprise soakage enshrine landfall chieftain footstool spelldown springbok grimace sundown walkway backstop falchion misspeak corrade scrapyard implant benzoate newsgirl yearling blackhead clapboard constrict heartbeat sternpost polity regrade smatter pressure palsgrave caution fistful smolder joystick anele cryoscope collage mullion pertain sparkle campstool cheapen cypress statute splutter doomsayer jackknife dewdrop entrain lectern tussock nutshell response suppliant threshold gunlock monody roundel flathead soulmate fitting gomuti neutron rhombus keyboard tripwire coachload fantail padrone rorqual bookshop cashbook bestrew colloid dieback excrete gumball leopard passkey conflict scullion squatter tailspin anuran commute dyewood postbag tombstone backache helpline dartboard guardrail encrust mayweed outstay tontine divulge tractor heirloom footboard brigand cowherb minster checkmate crosswalk banksia cupcake enslave mismate dogwatch yearbook uvula forgive sputter suspect workweek jackscrew airdrop bittern cuckold eponym rubdown bludgeon colleague incline rhizoid farthing freehold newsflash brothel bustard caboose cichlid infarct choirboy halfback rearward hostess kaddish baldhead distraint bowline contain cupola married patroon spotter whatsit brochure internee clearance gavotte pilsner shellac tailgate gearshift greatcoat garfish redline vesture wrapper backhand castrate shortcake chaplet patient soybean tricorn wardrobe lagniappe durmast gymslip nitpick nursling bolster critter lawsuit campfire constant keelhaul".split(' ');
+function rnd(n) { return Math.floor(Math.random() * n); }
+
+function pickWord(items) {
+  var used = new Set(items), L = items.length, N = BANK.length;
+  var lo = Math.max(0, L - 30), hi = Math.min(N, L + 70);
+  for (var k = 0; k < 20; k++) {
+    var c = [];
+    for (var i = lo; i < hi; i++) if (!used.has(BANK[i])) c.push(BANK[i]);
+    if (c.length) return c[rnd(c.length)];
+    var span = hi - lo;
+    lo = Math.max(0, lo - span); hi = Math.min(N, hi + span);
+  }
+  for (var j = 0; j < N; j++) if (!used.has(BANK[j])) return BANK[j];
+  return null;
+}
+function pickDigit(items) {
+  var n = items.length;
+  for (var t = 0; t < 80; t++) {
+    var d = rnd(10);
+    if (n >= 2) {
+      var a = +items[n - 2], b = +items[n - 1];
+      if (a === b && b === d) continue;
+      if (b - a === 1 && d - b === 1) continue;
+      if (a - b === 1 && b - d === 1) continue;
+    }
+    return String(d);
+  }
+  return String(rnd(10));
+}
+function pickLetter(items) {
+  var U = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', n = items.length;
+  var pool = n < 26 ? U : U + U.toLowerCase();
+  var used = new Set(items);
+  var prev = n ? items[n - 1].toUpperCase().charCodeAt(0) : -9;
+  var fresh = pool.split('').filter(function (ch) { return n >= 26 || !used.has(ch); });
+  for (var t = 0; t < 80; t++) {
+    var ch = fresh[rnd(fresh.length)], c = ch.toUpperCase().charCodeAt(0);
+    if (Math.abs(c - prev) <= 1) continue;
+    return ch;
+  }
+  return fresh[rnd(fresh.length)];
+}
+function nextItem(cat, items) {
+  if (cat === 'words') return pickWord(items);
+  if (cat === 'numbers') return pickDigit(items);
+  return pickLetter(items);
+}
+function toArr(cat, s) { return cat === 'words' ? (s ? s.split(' ') : []) : (s ? s.split('') : []); }
+function toStr(cat, a) { return cat === 'words' ? a.join(' ') : a.join(''); }
+function parseAnswer(cat, text) {
+  if (cat === 'words') return text.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  if (cat === 'numbers') return text.replace(/[^0-9]/g, '').split('').filter(Boolean);
+  return text.replace(/[^A-Za-z]/g, '').split('').filter(Boolean);
+}
+function grade(items, typed) {
+  var misses = [], right = 0;
+  for (var i = 0; i < items.length; i++) {
+    if (typed[i] === items[i]) right++;
+    else misses.push({ pos: i + 1, expected: items[i], typed: typed[i] === undefined ? null : typed[i] });
+  }
+  var extra = Math.max(0, typed.length - items.length);
+  return {
+    ok: misses.length === 0 && extra === 0, right: right, total: items.length,
+    misses: misses, extra: extra,
+    firstMiss: misses.length ? misses[0].pos : (extra ? items.length + 1 : 0)
+  };
+}
+// CORE-END
+
+/* ---------- state and storage ---------- */
+var LS = 'recall-ladder-v1';
+function blankBest() { return { best: 0, at: 0, attempts: 0, mastered: 0 }; }
+function blank() {
+  return { lists: [], bests: { words: blankBest(), numbers: blankBest(), letters: blankBest() }, counters: { words: 0, numbers: 0, letters: 0 } };
+}
+var state = blank();
+var col = null, mode = 'device', syncFailed = false;
+
+function ser(l) {
+  return { id: l.id, name: l.name, cat: l.cat, items: toStr(l.cat, l.items), attempts: l.attempts, mastered: l.mastered, created: l.created, complete: !!l.complete };
+}
+function de(o) {
+  if (!o || !CATS[o.cat] || typeof o.id !== 'string') return null;
+  return { id: o.id, name: String(o.name || CATS[o.cat].label), cat: o.cat, items: toArr(o.cat, String(o.items || '')), attempts: +o.attempts || 0, mastered: +o.mastered || 0, created: +o.created || 0, complete: !!o.complete };
+}
+function cleanBests(b) {
+  var out = blank().bests;
+  if (b) Object.keys(out).forEach(function (k) { if (b[k]) out[k] = { best: +b[k].best || 0, at: +b[k].at || 0, attempts: +b[k].attempts || 0, mastered: +b[k].mastered || 0 }; });
+  return out;
+}
+function cleanCounters(c) {
+  var out = { words: 0, numbers: 0, letters: 0 };
+  if (c) Object.keys(out).forEach(function (k) { out[k] = +c[k] || 0; });
+  return out;
+}
+function loadLocal() {
+  try {
+    var raw = localStorage.getItem(LS);
+    if (!raw) return;
+    var o = JSON.parse(raw), s = blank();
+    s.lists = (o.lists || []).map(de).filter(Boolean);
+    s.bests = cleanBests(o.bests); s.counters = cleanCounters(o.counters);
+    state = s;
+  } catch (e) { /* no local copy */ }
+}
+function saveLocal() {
+  try {
+    localStorage.setItem(LS, JSON.stringify({ lists: state.lists.map(ser), bests: state.bests, counters: state.counters }));
+  } catch (e) { /* storage unavailable */ }
+}
+function byId(id) { for (var i = 0; i < state.lists.length; i++) if (state.lists[i].id === id) return state.lists[i]; return null; }
+function persist(ids, del, profile) {
+  saveLocal();
+  if (!col) return;
+  var jobs = [];
+  (ids || []).forEach(function (id) { var l = byId(id); if (l) jobs.push(col.doc('list_' + id).set(ser(l))); });
+  (del || []).forEach(function (id) { jobs.push(col.doc('list_' + id).delete()); });
+  if (profile !== false) jobs.push(col.doc('profile').set({ bests: state.bests, counters: state.counters }));
+  Promise.allSettled(jobs).then(function (rs) {
+    syncFailed = rs.some(function (r) { return r.status === 'rejected'; });
+    foot();
+  });
+}
+function mergeRemote(docs) {
+  var push = [], remoteIds = {};
+  docs.forEach(function (d) {
+    var data = d.data() || {};
+    if (d.id === 'profile') {
+      var rb = cleanBests(data.bests), rc = cleanCounters(data.counters);
+      Object.keys(rb).forEach(function (k) {
+        var a = state.bests[k], b = rb[k];
+        state.bests[k] = { best: Math.max(a.best, b.best), at: a.best >= b.best ? a.at : b.at, attempts: Math.max(a.attempts, b.attempts), mastered: Math.max(a.mastered, b.mastered) };
+        state.counters[k] = Math.max(state.counters[k], rc[k]);
+      });
+    } else if (d.id.indexOf('list_') === 0) {
+      var r = de(data); if (!r) return;
+      remoteIds[r.id] = true;
+      var l = byId(r.id);
+      if (!l) state.lists.push(r);
+      else if (r.attempts > l.attempts) state.lists[state.lists.indexOf(l)] = r;
+      else if (l.attempts > r.attempts) push.push(l.id);
+    }
+  });
+  state.lists.forEach(function (l) { if (!remoteIds[l.id] && push.indexOf(l.id) < 0) push.push(l.id); });
+  state.lists.sort(function (a, b) { return b.created - a.created; });
+  return push;
+}
+var sb = null, session = null;
+function chk(r) { if (r && r.error) throw r.error; return r; }
+function makeCol(uid) {
+  return {
+    doc: function (id) {
+      return {
+        set: function (data) { return sb.from('user_docs').upsert({ user_id: uid, doc_id: id, data: data, updated_at: new Date().toISOString() }).then(chk); },
+        delete: function () { return sb.from('user_docs').delete().eq('user_id', uid).eq('doc_id', id).then(chk); }
+      };
+    },
+    get: function () {
+      return sb.from('user_docs').select('doc_id,data').eq('user_id', uid).then(function (r) {
+        chk(r);
+        return { docs: r.data.map(function (x) { return { id: x.doc_id, data: function () { return x.data; } }; }) };
+      });
+    }
+  };
+}
+function attach(sess) {
+  if (!sess) { col = null; mode = 'device'; foot(); return Promise.resolve(); }
+  var c = makeCol(sess.user.id);
+  return c.get().then(function (snap) {
+    col = c; mode = 'account'; syncFailed = false;
+    var push = mergeRemote(snap.docs);
+    saveLocal(); persist(push, [], true);
+    if (ui.view === 'home' || ui.view === 'score') render();
+    foot();
+  }).catch(function () { syncFailed = true; foot(); });
+}
+function connect() {
+  var cfg = window.RECALL_CONFIG || {};
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || !window.supabase) return;
+  sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  sb.auth.getSession().then(function (r) { session = r.data.session; foot(); return attach(session); });
+  sb.auth.onAuthStateChange(function (ev, s) {
+    if (ev === 'SIGNED_IN' && s && (!session || session.user.id !== s.user.id)) { session = s; attach(s); }
+    if (ev === 'SIGNED_OUT') { session = null; attach(null); }
+  });
+}
+
+/* ---------- ui ---------- */
+var ui = { view: 'home', listId: null, result: null, confirmDel: null, start: 0 };
+var timer = null;
+function $(s) { return document.querySelector(s); }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function fmt(n) { return Number(n).toLocaleString(); }
+function when(t) { return t ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+function cur() { return byId(ui.listId); }
+
+var authMsg = '', signingIn = false;
+function foot() {
+  var el = $('#foot'); if (!el) return;
+  var msg = syncFailed ? 'Could not reach your account just now. Progress is saved on this device.'
+    : (mode === 'account' ? 'Synced to your account.' : 'Saved on this device.');
+  var h = '<span>' + esc(authMsg || msg) + '</span>';
+  if (sb && session) h += ' <button class="link" data-act="signout">Sign out</button>';
+  else if (sb && !signingIn) h += ' <button class="link" data-act="signin">Sign in to sync</button>';
+  if (sb && !session && signingIn) {
+    h += '<form id="authform" class="authrow"><label class="small" for="email">Email</label>' +
+      '<input id="email" type="email" required autocomplete="email" placeholder="you@example.com">' +
+      '<button class="btn primary" type="submit">Send sign-in link</button></form>';
+  }
+  el.innerHTML = h;
+}
+function go(view, extra) {
+  ui.view = view;
+  if (extra) for (var k in extra) ui[k] = extra[k];
+  render();
+  window.scrollTo(0, 0);
+}
+function setDock(html) {
+  var d = $('#dock');
+  if (!html) { d.hidden = true; $('#dockin').innerHTML = ''; return; }
+  $('#dockin').innerHTML = html; d.hidden = false;
+}
+function tick() {
+  var el = $('#clock'); if (!el) return;
+  var s = Math.floor((Date.now() - ui.start) / 1000);
+  el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function homeHTML() {
+  var starts = Object.keys(CATS).map(function (k) {
+    return '<button class="start" data-act="new" data-cat="' + k + '"><strong>' + CATS[k].label + '</strong><span>' + CATS[k].blurb + '</span></button>';
+  }).join('');
+  if (!state.lists.length) {
+    return '<div class="stack" style="gap:1.5rem">' +
+      '<div class="stack"><h1>Remember the whole list, in order.</h1>' +
+      '<p class="muted">Every perfect recall adds one more item. Miss one and the same list comes back until you get it right.</p></div>' +
+      '<div class="stack"><h2>Start your first list</h2><div class="starts">' + starts + '</div></div></div>';
+  }
+  var cards = state.lists.map(function (l) {
+    var n = l.items.length, c = CATS[l.cat];
+    if (ui.confirmDel === l.id) {
+      return '<article class="card"><div class="stack"><h2>Delete ' + esc(l.name) + '?</h2>' +
+        '<p class="muted small">The list is removed for good. Your best scores stay on the scoreboard.</p></div>' +
+        '<div class="actions"><button class="btn danger" data-act="del" data-id="' + l.id + '">Delete list</button>' +
+        '<button class="btn" data-act="canceldel">Keep it</button></div></article>';
+    }
+    return '<article class="card"><div class="row"><h2>' + esc(l.name) + '</h2><span class="chip">' + c.label + '</span></div>' +
+      '<div class="numline"><span class="big">' + fmt(n) + '</span><span class="muted">' + c.unit + (l.complete ? ', list complete' : ' to recall') + '</span></div>' +
+      '<p class="small muted">' + fmt(l.attempts) + ' attempt' + (l.attempts === 1 ? '' : 's') + ' · ' + fmt(l.mastered) + ' perfect</p>' +
+      '<div class="actions"><button class="btn primary" data-act="open" data-id="' + l.id + '">' + (l.complete ? 'Review' : 'Study') + '</button>' +
+      '<button class="btn quiet danger" data-act="askdel" data-id="' + l.id + '">Delete</button></div></article>';
+  }).join('');
+  return '<div class="stack" style="gap:1.5rem"><h1>Your lists</h1><div class="lists">' + cards + '</div>' +
+    '<div class="stack"><h2>Start another list</h2><div class="starts">' + starts + '</div></div></div>';
+}
+
+function studyHTML(l) {
+  var n = l.items.length, c = CATS[l.cat], body;
+  if (l.cat === 'words') {
+    body = '<ol class="wgrid">' + l.items.map(function (w, i) {
+      return '<li' + (i === n - 1 && n > 1 ? ' class="new"' : '') + '><span class="n">' + (i + 1) + '</span><span class="w">' + esc(w) + '</span></li>';
+    }).join('') + '</ol>';
+  } else {
+    var g = [];
+    for (var i = 0; i < n; i += 5) {
+      var chunk = l.items.slice(i, i + 5).map(function (ch, j) {
+        return (i + j === n - 1 && n > 1) ? '<mark>' + esc(ch) + '</mark>' : esc(ch);
+      }).join('');
+      g.push('<div class="grp"><span class="gi">' + (i + 1) + '</span><span class="gv">' + chunk + '</span></div>');
+    }
+    body = '<div class="ggrid">' + g.join('') + '</div>';
+  }
+  var hint = n === 1 ? 'Read it, then hide the list and recall it.'
+    : (l.cat === 'words' ? 'Read them in order. The newest word is highlighted.'
+      : 'Read them in order, in groups of five. The newest ' + (l.cat === 'numbers' ? 'digit' : 'letter') + ' is highlighted.');
+  return '<div class="stack" style="gap:1.25rem">' +
+    '<div class="row"><button class="link" data-act="home">← Lists</button><span class="counter">Study time <span id="clock">00:00</span></span></div>' +
+    '<div class="stack"><div class="row"><span class="eyebrow">' + esc(l.name) + '</span><span class="chip">' + c.label + '</span></div>' +
+    '<div class="numline"><span class="big">' + fmt(n) + '</span><span class="muted">' + c.unit + ' in order</span></div>' +
+    '<p class="muted">' + hint + '</p></div>' + body + '</div>';
+}
+
+function recallHTML(l) {
+  var n = l.items.length, c = CATS[l.cat];
+  var how = l.cat === 'words' ? 'Type the ' + fmt(n) + ' word' + (n === 1 ? '' : 's') + ' in order, separated by spaces or new lines.'
+    : l.cat === 'numbers' ? 'Type the ' + fmt(n) + ' digit' + (n === 1 ? '' : 's') + ' in order. Spaces are ignored.'
+      : 'Type the ' + fmt(n) + ' letter' + (n === 1 ? '' : 's') + ' in order. Spaces are ignored' + (n > 26 ? ', and capitals count.' : '.');
+  var im = l.cat === 'numbers' ? ' inputmode="numeric"' : '';
+  return '<div class="stack" style="gap:1.25rem">' +
+    '<div class="row"><button class="link" data-act="home">← Lists</button><span class="chip">' + c.label + '</span></div>' +
+    '<div class="stack"><h1>Recall in order</h1><p class="muted">' + how + '</p></div>' +
+    '<div class="stack"><label for="answer" class="eyebrow">Your answer</label>' +
+    '<textarea id="answer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + im + ' placeholder="Start typing"></textarea>' +
+    '<div class="row"><span class="counter" id="count">Typed 0 of ' + fmt(n) + '</span><span class="small warn" id="msg"></span></div></div></div>';
+}
+
+function resultHTML(l) {
+  var r = ui.result, c = CATS[l.cat];
+  if (r.ok) {
+    var next = l.complete ? '' : '<p class="muted">Next up: ' + fmt(l.items.length) + ' ' + c.unit + '. One new ' + (l.cat === 'words' ? 'word' : l.cat === 'numbers' ? 'digit' : 'letter') + ' is waiting at the end.</p>';
+    return '<div class="verdict ok"><span class="eyebrow">Mastered</span>' +
+      '<div class="numline"><span class="big">' + fmt(r.total) + '</span><span class="muted">' + c.unit + ' recalled in order</span></div>' +
+      (r.newBest ? '<span class="pill">New best in ' + c.label + '</span>' : '') +
+      (l.complete ? '<p class="muted">This list is complete. You can review it any time.</p>' : next) +
+      '<div class="actions"><button class="btn primary" data-act="open" data-id="' + l.id + '">' + (l.complete ? 'Review the list' : 'Study length ' + fmt(l.items.length)) + '</button>' +
+      '<button class="btn" data-act="home">Back to lists</button></div></div>';
+  }
+  var shown = r.misses.slice(0, 8), more = r.misses.length - shown.length;
+  var rows = shown.map(function (m) {
+    return '<tr><td>' + fmt(m.pos) + '</td><td class="m">' + esc(m.expected) + '</td><td class="m">' + (m.typed === null ? '<span class="muted">nothing</span>' : esc(m.typed)) + '</td></tr>';
+  }).join('');
+  var first = r.misses.length ? r.misses[0] : null;
+  var line = first ? 'First miss at position ' + fmt(first.pos) + '. It was ' + esc(first.expected) + (first.typed === null ? ' and you stopped before it.' : ', you typed ' + esc(first.typed) + '.')
+    : 'Everything was right, but you typed ' + fmt(r.extra) + ' extra ' + c.unit + ' at the end.';
+  return '<div class="verdict no"><span class="eyebrow">Not yet</span>' +
+    '<div class="numline"><span class="big" style="color:var(--ink)">' + fmt(r.right) + '<span class="muted" style="font-size:.5em"> / ' + fmt(r.total) + '</span></span><span class="muted">in the right place</span></div>' +
+    '<p>' + line + '</p>' +
+    (rows ? '<div class="tablewrap"><table><thead><tr><th>Position</th><th>It was</th><th>You typed</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '') +
+    (more > 0 ? '<p class="small muted">and ' + fmt(more) + ' more in the same list</p>' : '') +
+    (r.extra && rows ? '<p class="small muted">You also typed ' + fmt(r.extra) + ' extra at the end.</p>' : '') +
+    '<p class="muted">The list stays the same. Study it again and try once more.</p>' +
+    '<div class="actions"><button class="btn primary" data-act="open" data-id="' + l.id + '">Study the same list again</button>' +
+    '<button class="btn" data-act="home">Back to lists</button></div></div>';
+}
+
+function scoreHTML() {
+  var cards = Object.keys(CATS).map(function (k) {
+    var b = state.bests[k], c = CATS[k];
+    return '<article class="card"><div class="row"><h2>' + c.label + '</h2><span class="chip">Best</span></div>' +
+      '<div class="numline"><span class="big">' + fmt(b.best) + '</span><span class="muted">' + c.unit + ' in order</span></div>' +
+      '<p class="small muted">' + (b.best ? 'Set ' + when(b.at) + ' · ' : 'No score yet · ') + fmt(b.mastered) + ' perfect of ' + fmt(b.attempts) + ' attempt' + (b.attempts === 1 ? '' : 's') + '</p></article>';
+  }).join('');
+  return '<div class="stack" style="gap:1.5rem"><div class="stack"><h1>Scoreboard</h1>' +
+    '<p class="muted">Your longest perfect recall in each category. Deleting a list never lowers a score.</p></div>' +
+    '<div class="scores">' + cards + '</div></div>';
+}
+
+function render() {
+  if (timer) { clearInterval(timer); timer = null; }
+  var v = ui.view, s = $('#screen'), l = cur();
+  if ((v === 'study' || v === 'recall' || v === 'result') && !l) { ui.view = v = 'home'; }
+  $('#tab-home').setAttribute('aria-current', v === 'score' ? 'false' : 'page');
+  $('#tab-score').setAttribute('aria-current', v === 'score' ? 'page' : 'false');
+  setDock('');
+  if (v === 'home') s.innerHTML = homeHTML();
+  else if (v === 'score') s.innerHTML = scoreHTML();
+  else if (v === 'study') {
+    s.innerHTML = studyHTML(l);
+    setDock('<button class="btn primary" data-act="recall">Hide the list and recall</button>');
+    ui.start = Date.now(); tick(); timer = setInterval(tick, 1000);
+  } else if (v === 'recall') {
+    s.innerHTML = recallHTML(l);
+    setDock('<button class="btn primary" data-act="check">Check my answer</button>');
+    var a = $('#answer'); if (a) a.focus();
+  } else if (v === 'result') s.innerHTML = resultHTML(l);
+  foot();
+}
+
+function newList(cat) {
+  state.counters[cat] += 1;
+  var l = { id: 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: CATS[cat].label + ' ' + state.counters[cat], cat: cat, items: [], attempts: 0, mastered: 0, created: Date.now(), complete: false };
+  l.items.push(nextItem(cat, []));
+  state.lists.unshift(l);
+  persist([l.id], [], true);
+  go('study', { listId: l.id });
+}
+function check() {
+  var l = cur(); if (!l) return;
+  var a = $('#answer'), typed = parseAnswer(l.cat, a.value);
+  if (!typed.length) { $('#msg').textContent = 'Type your answer first.'; return; }
+  var g = grade(l.items, typed), b = state.bests[l.cat];
+  l.attempts += 1; b.attempts += 1;
+  var res = { ok: g.ok, right: g.right, total: g.total, misses: g.misses, extra: g.extra, newBest: false };
+  if (g.ok) {
+    l.mastered += 1; b.mastered += 1;
+    if (g.total > b.best) { b.best = g.total; b.at = Date.now(); res.newBest = true; }
+    if (l.items.length >= MAX) l.complete = true;
+    else { var w = nextItem(l.cat, l.items); if (w) l.items.push(w); else l.complete = true; }
+  }
+  persist([l.id], [], true);
+  go('result', { result: res });
+}
+
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-act]'); if (!t) return;
+  var act = t.getAttribute('data-act'), id = t.getAttribute('data-id');
+  if (act === 'home') { ui.confirmDel = null; go('home'); }
+  else if (act === 'score') go('score');
+  else if (act === 'new') newList(t.getAttribute('data-cat'));
+  else if (act === 'open') go('study', { listId: id });
+  else if (act === 'recall') go('recall');
+  else if (act === 'check') check();
+  else if (act === 'signin') { signingIn = true; authMsg = ''; foot(); var em = $('#email'); if (em) em.focus(); }
+  else if (act === 'signout') { authMsg = ''; sb.auth.signOut(); }
+  else if (act === 'askdel') { ui.confirmDel = id; render(); }
+  else if (act === 'canceldel') { ui.confirmDel = null; render(); }
+  else if (act === 'del') {
+    state.lists = state.lists.filter(function (x) { return x.id !== id; });
+    ui.confirmDel = null; persist([], [id], false); render();
+  }
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'authform') return;
+  e.preventDefault();
+  var email = $('#email').value.trim(); if (!email || !sb) return;
+  authMsg = 'Sending the link…'; foot();
+  sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.origin + location.pathname } }).then(function (r) {
+    signingIn = false;
+    authMsg = r.error ? 'Could not send the link: ' + r.error.message : 'Check your email and open the link to sign in.';
+    foot();
+  });
+});
+document.addEventListener('input', function (e) {
+  if (e.target.id !== 'answer') return;
+  var l = cur(); if (!l) return;
+  var n = parseAnswer(l.cat, e.target.value).length;
+  $('#count').textContent = 'Typed ' + fmt(n) + ' of ' + fmt(l.items.length);
+  $('#msg').textContent = '';
+});
+document.addEventListener('keydown', function (e) {
+  if (e.target.id === 'answer' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); }
+});
+
+loadLocal();
+render();
+connect();
+})();
+</script>
